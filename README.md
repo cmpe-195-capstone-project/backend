@@ -1,12 +1,11 @@
 ## Setup
-### 1. Create and Run The Scheduler Application First
-- [Ember Alert Scheduler](https://github.com/AliciaZhao/Ember-Alert/blob/scheduler/scheduler/README.md)
-> The scheduler populates the database used for the main server & you need the database to be running for this to work.
 
-## 2. Change into Server Directory
+## 1. Create Database
 ```shell
-cd server
+docker run --name test_db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=test_db -p 5434:5432 -d postgres:17
 ```
+> Access Postgresql Shell: `docker exec -it test_db psql -U postgres -d test_db`
+
 ### 2. Create Virtual Environment
 ```shell
 python3 -m venv venv
@@ -34,13 +33,12 @@ pip install -r requirements.txt
 - Add the following lines to `.env` file
 ```
 API_URL=https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=true
-
+TEST_DB_URL='postgresql://postgres:postgres@localhost:5434/test_db'
 DATABASE_URL=postgresql://postgres:postgres@localhost:5433/postgres
 ```
 
-### 5. Run FastAPI app
+### 6. Run FastAPI app
 ```shell
 uvicorn main:app --reload 
 ```
 > Access the FastAPI at `localhost:8000` and the Swagger UI interface at `localhost:8000/docs`
-# backend
