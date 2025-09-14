@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     API_URL: str
     DATABASE_URL: str
+    TEST_DB_URL: str
 
     # tells Pydantic to load the variables from a file named '.env'
     model_config = SettingsConfigDict(env_file=".env")
