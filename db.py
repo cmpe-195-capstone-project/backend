@@ -14,7 +14,13 @@ SessionLocal = sessionmaker(autoflush=False, bind=engine, autocommit=False)
 # base class for declarative models
 Base = declarative_base()
 
-# db session
+
+# ===== FOR TEST DB =====
+engine_test = create_engine(settings.TEST_DB_URL)
+SessionLocalTest = sessionmaker(autoflush=False, bind=engine_test, autocommit=False)
+# =======================
+
+# main db session
 def get_db():
     db = SessionLocal()
     try:
@@ -22,6 +28,13 @@ def get_db():
     finally:
         db.close()
 
+# test db session
+def get_test_db():
+    test_db = SessionLocalTest()
+    try:
+        yield test_db
+    finally:
+        test_db.close()
         
 # db models 
 class FireModel(Base):
