@@ -40,9 +40,25 @@ async def notification_endpoint(websocket: WebSocket, db: Session = Depends(get_
             user_long = data['longitude']
             radius = data['radius']
 
+            # 1: look at active fires in db 
+            # active_fires = db.query(FireModel).filter(FireModel.final == False, FireModel.is_active == True).all()
+            # fire_notifications = []
+            # for fire in active_fires:
+            #     user_location = (user_lat, user_long)
+            #     fire_location = (fire.latitude, fire.longitude)
+
+            #     distance = geodesic(user_location, fire_location)
+
+            #     if distance < float(radius):
+            #         fire_notifications.append(fire)
             
-            # fires = db.query(FireModel).filter(
-                
+            # 2: create a box around users location and query database for fires within that box
+            # need to get north point, south point, west point, east point all at a distance of 'radius'
+           
+             
+            
+            await manager.send_personal_message(f"list of all fires within {radius} of user's location", websocket)   
+
             san_jose = (user_lat, user_long) 
             santa_clara=(37.354107, -121.955238)
             distance = geodesic(san_jose, santa_clara).miles 
