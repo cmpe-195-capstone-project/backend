@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime, date
 
 
@@ -21,3 +21,5 @@ class FireSchema(BaseModel):
     is_active: bool
     url: str | None = None
     inserted_at: datetime | None
+
+    model_config = ConfigDict(frozen=True)
