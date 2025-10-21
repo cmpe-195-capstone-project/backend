@@ -1,10 +1,17 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Query, Depends
 import httpx, json
 
 from schema.fireschema import FireSchema
 from db import get_db, FireModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
+from sqlalchemy import and_, func
+
+from datetime import datetime, date, timedelta
+from faker import Faker
+import random
+fake = Faker()
+
 
 # define new router
 server_api = APIRouter()
@@ -56,3 +63,68 @@ async def get_fire_data(fire_id: str, db: Session = Depends(get_db)) -> FireSche
 
     except SQLAlchemyError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unexpected database error occurred.")
+    
+@server_api.get("/fires/box", response_model=list[FireSchema])
+async def get_fires_in_box(
+    minLat: float = Query(...),
+    minLng: float = Query(...),
+    maxLat: float = Query(...),
+    maxLng: float = Query(...),
+    county: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[FireSchema]:
+    if minLat > maxLat:
+        minLat, maxLat = maxLat, minLat
+    if minLng > maxLng:
+        minLng, maxLng = maxLng, minLng
+
+    try:
+        q = db.query(FireModel).filter(
+            and_(
+                FireModel.latitude  >= minLat,
+                FireModel.latitude  <= maxLat,
+                FireModel.longitude >= minLng,
+                FireModel.longitude <= maxLng,
+            )
+        )
+        if county:
+            q = q.filter(func.lower(FireModel.county) == county.lower())
+
+        return q.all() 
+    except OperationalError:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB unavailable")
+    except IntegrityError:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="DB integrity error")
+    except SQLAlchemyError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unexpected DB error")
+
+#testing endpoint
+@server_api.get("/ping")
+def ping():
+    return {"ok": True}
+
+@server_api.post("/seed-sjsu", response_model=FireSchema)
+async def seed_sjsu(db: Session = Depends(get_db)):
+    row = FireModel(
+        id="TEST-SJSU-1",
+        name="Test SJSU Fire",
+        location="San José State University",
+        county="Santa Clara",
+        is_active=True,
+        final=False,
+        updated_datetime=datetime.utcnow(),
+        start_datetime=datetime.utcnow(),
+        extinguished_datetime=None,
+        start_date=date.today(),
+        acres_burned=12.3,
+        percent_contained=10.0,
+        latitude=37.3352,
+        longitude=-121.8811,
+        fire_type="Wildfire",
+        control_statement="Seed for SJSU map test",
+        url="https://example.com",
+    )
+    db.merge(row)  # upsert by primary key
+    db.commit()
+    return db.query(FireModel).get("TEST-SJSU-1")
+
