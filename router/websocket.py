@@ -1,6 +1,6 @@
 from fastapi import WebSocket, APIRouter, WebSocketDisconnect, Depends, status
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from db import get_db, get_test_db, FireModel, SessionLocal, SessionLocalTest
 from schema.fireschema import FireSchema
@@ -29,7 +29,7 @@ async def alert(websocket: WebSocket):
 
         # store the connection
         await manager.add_connection(websocket=websocket, id=id, user_location=location)
-        print(f"ID[{id}] - Connected device")
+        print(f"INFO: Connected device [ID] - {id}", flush=True)
 
         # loop over the ongoing messages
         while True:
@@ -37,47 +37,48 @@ async def alert(websocket: WebSocket):
 
             # client pushes updated location to the server
             if data.get("type") == "update_location":
-                print(f"ID[{id}] - Updated location")
+                print(f"ID[{id}] - Updated location", flush=True)
                 new_location = UserLocation(**data)
                 await manager.update_location(id=id, user_location=new_location)
 
     except WebSocketDisconnect:
         await manager.disconnect(id=id)
-        print(f"Disconnect websocket")
+        print(f"INFO: [WSDisconnect] Disconnect websocket - [ID: {id}]", flush=True)
     except (ValueError, TypeError) as e: 
-        print(f"An error occurred: {e}")
+        print(f"ERROR: An error occurred: {e}")
         await manager.send_json_message(id, "Invalid location data format")
     except Exception as e:
-        print(f"Unexpected error occurred with device ID[{id}]: {e}")
+        print(f"Unexpected error occurred with device ID[{id}]: {e}", flush=True)
         await manager.disconnect(id=id)
 
 
 async def check_fires():
-    print("===checking for fires===")
-    db = SessionLocalTest()
-    
+    print(f"INFO: [CheckingFire] - {datetime.now()}", flush=True)
+    db = SessionLocal()
+    id = None
     try:
         # get all active fires  
         active_fires = db.query(FireModel).filter(FireModel.is_active == True).all()
         
-        if active_fires:
-            # loop over active connections
-            for id, user_data in manager.active_connections.items():
-                user_location = user_data["location"]
 
-                # get the coordinates of a box around the user
-                bounding_box = get_coordinates(
-                    latitude=user_location.latitude, 
-                    longitude=user_location.longitude, 
-                    radius=user_location.radius
-                )
+        # loop over active connections
+        for id, user_data in manager.active_connections.items():
+            user_location = user_data["location"]
 
-                # get the cache or create a new cache
-                user_cache = cache.setdefault(id, set())
+            # get the coordinates of a box around the user
+            bounding_box = get_coordinates(
+                latitude=user_location.latitude, 
+                longitude=user_location.longitude, 
+                radius=user_location.radius
+            )
 
-                fire_alerts: list[FireSchema] = [] # used to store alerts that will be sent
+            # get the cache or create a new cache
+            user_cache = cache.setdefault(id, set())
 
-                # loop over the active fires 
+            fire_alerts: list[FireSchema] = [] # used to store alerts that will be sent
+
+            # loop over the active fires 
+            if active_fires:
                 for fire in active_fires:
                     # check if there is a fire within the users bounding box
                     if (bounding_box.min_lat <= fire.latitude <= bounding_box.max_lat and
@@ -88,17 +89,20 @@ async def check_fires():
                             continue
                         else:
                             fire_alerts.append(fire_schema)
+            else:
+                # TODO: Remove print message later
+                print(f"INFO: [CheckingFire] There are no fires - {datetime.now()}", flush=True)
+                await manager.send_message(id=id, message="There are no fires.")
 
-                # send the fire alerts and store in cache
-                if fire_alerts:
-                    # send the fire and store in cache
-                    await manager.send_json_of_fires(id=id, fires=fire_alerts)
-                    user_cache.update(fire_alerts)
-                    print(f"Sent {len(fire_alerts)} alerts to device [{id}]")
-        else:
-            print("There are no fires")
+            # send the fire alerts and store in cache
+            if fire_alerts:
+                # send the fire and store in cache
+                await manager.send_json_of_fires(id=id, fires=fire_alerts)
+                user_cache.update(fire_alerts)
+                print(f"INFO: Sent {len(fire_alerts)} alerts to device [{id}]", flush=True)
+                
+       
     except Exception as e:
-        print(f"Error during task [check_fire()]: {e}")
-        print(f"Error type: {type(e).__name__}")
+        print(f"ERROR: Error during Task [check_fire()] - Type {type(e).__name__}: {e}", flush=True)
     finally:
         db.close()
