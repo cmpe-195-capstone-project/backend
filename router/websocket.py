@@ -25,6 +25,7 @@ async def alert(websocket: WebSocket):
             return
         # intial connection
         data = await websocket.receive_json()
+        print(f"INFO: Data recieved: {data}")
         location = UserLocation(**data)
 
         # store the connection
@@ -42,14 +43,16 @@ async def alert(websocket: WebSocket):
                 await manager.update_location(id=id, user_location=new_location)
 
     except WebSocketDisconnect:
-        await manager.disconnect(id=id)
+        # await manager.disconnect(id=id)
         print(f"INFO: [WSDisconnect] Disconnect websocket - [ID: {id}]", flush=True)
+        return
     except (ValueError, TypeError) as e: 
         print(f"ERROR: An error occurred: {e}")
         await manager.send_json_message(id, "Invalid location data format")
     except Exception as e:
         print(f"Unexpected error occurred with device ID[{id}]: {e}", flush=True)
-        await manager.disconnect(id=id)
+        return
+        # await manager.disconnect(id=id)
 
 
 async def check_fires():

@@ -3,6 +3,6 @@ from pydantic import BaseModel
 DEFAULT_RADIUS = 10
 
 class UserLocation(BaseModel):
-    longitude: float
     latitude: float 
+    longitude: float
     radius: float = DEFAULT_RADIUS
