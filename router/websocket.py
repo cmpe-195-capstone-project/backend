@@ -95,7 +95,7 @@ async def check_fires():
             else:
                 # TODO: Remove print message later
                 print(f"INFO: [CheckingFire] There are no fires - {datetime.now()}", flush=True)
-                await manager.send_message(id=id, message="There are no fires.")
+                await manager.send_json_message(id=id, message="There are no fires.")
 
             # send the fire alerts and store in cache
             if fire_alerts:
