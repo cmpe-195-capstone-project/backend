@@ -25,12 +25,12 @@ async def alert(websocket: WebSocket):
             return
         # intial connection
         data = await websocket.receive_json()
-        print(f"INFO: Data recieved: {data}")
+        print(f"[INFO] WS: Data recieved: {data}")
         location = UserLocation(**data)
 
         # store the connection
         await manager.add_connection(websocket=websocket, id=id, user_location=location)
-        print(f"INFO: Connected device [ID] - {id}", flush=True)
+        print(f"[INFO] WS: Connected device [ID] - {id}", flush=True)
 
         # loop over the ongoing messages
         while True:
@@ -38,25 +38,25 @@ async def alert(websocket: WebSocket):
 
             # client pushes updated location to the server
             if data.get("type") == "update_location":
-                print(f"ID[{id}] - Updated location", flush=True)
+                print(f"[INFO] WS: Updated location for device - ID[{id}]", flush=True)
                 new_location = UserLocation(**data)
                 await manager.update_location(id=id, user_location=new_location)
 
     except WebSocketDisconnect:
         # await manager.disconnect(id=id)
-        print(f"INFO: [WSDisconnect] Disconnect websocket - [ID: {id}]", flush=True)
+        print(f"[INFO] WSDisconnect: Disconnect websocket - [ID: {id}]", flush=True)
         return
     except (ValueError, TypeError) as e: 
-        print(f"ERROR: An error occurred: {e}")
+        print(f"[ERROR]: An error occurred: {e}")
         await manager.send_json_message(id, "Invalid location data format")
     except Exception as e:
-        print(f"Unexpected error occurred with device ID[{id}]: {e}", flush=True)
+        print(f"[ERROR]: Unexpected error occurred with device ID[{id}]: {e}", flush=True)
         return
         # await manager.disconnect(id=id)
 
 
 async def check_fires():
-    print(f"INFO: [CheckingFire] - {datetime.now()}", flush=True)
+    print(f"[INFO] CheckFires: performing scheduled fire check at {datetime.now()}", flush=True)
     db = SessionLocal()
     id = None
     try:
@@ -94,7 +94,7 @@ async def check_fires():
                             fire_alerts.append(fire_schema)
             else:
                 # TODO: Remove print message later
-                print(f"INFO: [CheckingFire] There are no fires - {datetime.now()}", flush=True)
+                print(f"[INFO] CheckFires: No fire records available at {datetime.now()}", flush=True)
                 await manager.send_json_message(id=id, message="There are no fires.")
 
             # send the fire alerts and store in cache
@@ -102,10 +102,10 @@ async def check_fires():
                 # send the fire and store in cache
                 await manager.send_json_of_fires(id=id, fires=fire_alerts)
                 user_cache.update(fire_alerts)
-                print(f"INFO: Sent {len(fire_alerts)} alerts to device [{id}]", flush=True)
+                print(f"[INFO] CheckFires: Delivered {len(fire_alerts)} fire alert(s) to device {id}", flush=True)
                 
        
     except Exception as e:
-        print(f"ERROR: Error during Task [check_fire()] - Type {type(e).__name__}: {e}", flush=True)
+        print(f"[ERROR] CheckFires: Error during Task [check_fire()] - Type {type(e).__name__}: {e}", flush=True)
     finally:
         db.close()

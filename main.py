@@ -47,6 +47,6 @@ app.add_middleware(
 )
 
 # include routers
-app.include_router(server_api, prefix="/server")
-app.include_router(test, prefix="/test")
-app.include_router(ws, prefix="/ws")
+app.include_router(server_api, prefix="/server", tags=["Server API"])
+app.include_router(test, prefix="/test", tags=["Test API"])
+app.include_router(ws, prefix="/ws", tags=["WebSocket"])
