@@ -28,7 +28,7 @@ def get_active_db():
         yield from get_test_db()
         return
 
-    print(f"{Color.Yellow}[INFO] Database Session: Using MAIN database (settings.ENV!='test'){Color.RESET}")
+    print(f"{Color.YELLOW}[INFO] Database Session: Using MAIN database (settings.ENV!='test'){Color.RESET}")
     yield from get_db()
     
 # main db session

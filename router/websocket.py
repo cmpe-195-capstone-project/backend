@@ -2,11 +2,13 @@ from fastapi import WebSocket, APIRouter, WebSocketDisconnect, Depends, status
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
 
-from db import get_db, get_test_db, FireModel, SessionLocal, SessionLocalTest
+from db import get_db, get_test_db, get_active_db, FireModel, SessionLocal, SessionLocalTest
 from schema.fireschema import FireSchema
 from schema.userlocation import UserLocation
 from utils.geo import get_coordinates
 from utils.ws_manager import ConnectionManager
+from config import settings
+from utils.colors import Color
 
 ws = APIRouter()
 
@@ -25,12 +27,12 @@ async def alert(websocket: WebSocket):
             return
         # intial connection
         data = await websocket.receive_json()
-        print(f"[INFO] WS: Data recieved: {data}")
+        print(f"{Color.YELLOW}[INFO] WS: Data recieved: {data}{Color.RESET}")
         location = UserLocation(**data)
 
         # store the connection
         await manager.add_connection(websocket=websocket, id=id, user_location=location)
-        print(f"[INFO] WS: Connected device [ID] - {id}", flush=True)
+        print(f"{Color.YELLOW}[INFO] WS: Connected device [ID] - {id}{Color.RESET}", flush=True)
 
         # loop over the ongoing messages
         while True:
@@ -38,26 +40,26 @@ async def alert(websocket: WebSocket):
 
             # client pushes updated location to the server
             if data.get("type") == "update_location":
-                print(f"[INFO] WS: Updated location for device - ID[{id}]", flush=True)
+                print(f"{Color.YELLOW}[INFO] WS: Updated location for device - ID[{id}]{Color.RESET}", flush=True)
                 new_location = UserLocation(**data)
                 await manager.update_location(id=id, user_location=new_location)
 
     except WebSocketDisconnect:
         # await manager.disconnect(id=id)
-        print(f"[INFO] WSDisconnect: Disconnect websocket - [ID: {id}]", flush=True)
+        print(f"{Color.YELLOW}[INFO] WSDisconnect: Disconnect websocket - [ID: {id}]{Color.RESET}", flush=True)
         return
     except (ValueError, TypeError) as e: 
-        print(f"[ERROR]: An error occurred: {e}")
+        print(f"{Color.RED}[ERROR]: An error occurred: {e}{Color.RESET}")
         await manager.send_json_message(id, "Invalid location data format")
     except Exception as e:
-        print(f"[ERROR]: Unexpected error occurred with device ID[{id}]: {e}", flush=True)
+        print(f"{Color.RED}[ERROR]: Unexpected error occurred with device ID[{id}]: {e}{Color.RESET}", flush=True)
         return
         # await manager.disconnect(id=id)
 
 
 async def check_fires():
-    print(f"[INFO] CheckFires: performing scheduled fire check at {datetime.now()}", flush=True)
-    db = SessionLocal()
+    print(f"{Color.GREEN}[INFO] CheckFires: performing scheduled fire check at {datetime.now()}{Color.RESET}", flush=True)
+    db = SessionLocalTest() if settings.ENV == "test" else SessionLocal()
     id = None
     try:
         # get all active fires  
@@ -94,7 +96,7 @@ async def check_fires():
                             fire_alerts.append(fire_schema)
             else:
                 # TODO: Remove print message later
-                print(f"[INFO] CheckFires: No fire records available at {datetime.now()}", flush=True)
+                print(f"{Color.GREEN}[INFO] CheckFires: No fire records available at {datetime.now()}{Color.RESET}", flush=True)
                 await manager.send_json_message(id=id, message="There are no fires.")
 
             # send the fire alerts and store in cache
@@ -102,10 +104,10 @@ async def check_fires():
                 # send the fire and store in cache
                 await manager.send_json_of_fires(id=id, fires=fire_alerts)
                 user_cache.update(fire_alerts)
-                print(f"[INFO] CheckFires: Delivered {len(fire_alerts)} fire alert(s) to device {id}", flush=True)
+                print(f"{Color.GREEN}[INFO] CheckFires: Delivered {len(fire_alerts)} fire alert(s) to device {id}{Color.RESET}", flush=True)
                 
        
     except Exception as e:
-        print(f"[ERROR] CheckFires: Error during Task [check_fire()] - Type {type(e).__name__}: {e}", flush=True)
+        print(f"{Color.RED}[ERROR] CheckFires: Error during Task [check_fire()] - Type {type(e).__name__}: {e}{Color.RESET}", flush=True)
     finally:
         db.close()
