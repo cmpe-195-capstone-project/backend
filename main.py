@@ -5,6 +5,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from router.server import server_api
 from router.test_api import test
+from router.utils_api import utils_api
 from router.websocket import ws, check_fires
 from db import engine_test, Base
 
@@ -50,3 +51,4 @@ app.add_middleware(
 app.include_router(server_api, prefix="/server", tags=["Server API"])
 app.include_router(test, prefix="/test", tags=["Test API"])
 app.include_router(ws, prefix="/ws", tags=["WebSocket"])
+app.include_router(utils_api, prefix="/utils", tags=["Utils API"])
