@@ -2,10 +2,11 @@ from fastapi import APIRouter, HTTPException, status, Query, Depends
 import httpx, json
 
 from schema.fireschema import FireSchema
-from db import get_db, FireModel
+from db import get_db, get_active_db, FireModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
 from sqlalchemy import and_, func
+from config import settings
 
 from datetime import datetime, date, timedelta
 from faker import Faker
@@ -21,7 +22,7 @@ VALID_COUNTY = ["Santa Clara", "Santa Clara County", "County of Santa Clara", "S
 
 # get all fires in Santa Clara County 
 @server_api.get("/fires", response_model=list[FireSchema])
-async def get_fires(county: str, db: Session = Depends(get_db)) -> list[FireSchema]:
+async def get_fires(county: str, db: Session = Depends(get_active_db)) -> list[FireSchema]:
     if county.lower() not in map(str.lower, VALID_COUNTY):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a valid county in query")
 
@@ -44,7 +45,7 @@ async def get_fires(county: str, db: Session = Depends(get_db)) -> list[FireSche
 
 # get info for a specific fire based on a fire's id
 @server_api.get("/fire-data/{fire_id}", response_model=FireSchema)
-async def get_fire_data(fire_id: str, db: Session = Depends(get_db)) -> FireSchema:
+async def get_fire_data(fire_id: str, db: Session = Depends(get_active_db)) -> FireSchema:
     if not fire_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fire id provided")
     
