@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import Column, String, Boolean, DateTime, Date, Float, Text
 from config import settings
 from sqlalchemy.sql import func
+from utils.colors import Color
 
 # create db engine
 engine = create_engine(settings.DATABASE_URL)
@@ -20,6 +21,16 @@ engine_test = create_engine(settings.TEST_DB_URL)
 SessionLocalTest = sessionmaker(autoflush=False, bind=engine_test, autocommit=False)
 # =======================
 
+# get the active db session
+def get_active_db():
+    if settings.ENV == "test":
+        print(f"{Color.YELLOW}[INFO] Database Session: Using TEST database (settings.ENV='test'){Color.RESET}")
+        yield from get_test_db()
+        return
+
+    print(f"{Color.Yellow}[INFO] Database Session: Using MAIN database (settings.ENV!='test'){Color.RESET}")
+    yield from get_db()
+    
 # main db session
 def get_db():
     db = SessionLocal()
