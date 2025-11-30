@@ -69,3 +69,34 @@ Start the services using:
 ```shell
 docker compose up -d
 ```
+
+## Code Structure
+
+```shell
+backend/
+├── routes/
+│   ├── server.py          # REST API endpoints
+│   ├── test_api.py        # Test endpoints / testing utilities
+│   ├── utils_api.py       # Shared API helper functions
+│   └── websocket.py       # WebSocket endpoint
+│
+├── schema/
+│   ├── fireschema.py      # Wildfire incident schema 
+│   └── userlocation.py    # User location schema
+│
+├── utils/
+│   ├── colors.py          # Color utilities (for logging)
+│   ├── geo.py             # Geolocation + distance utilities
+│   └── ws_manager.py      # WebSocket connection/session manager
+│
+├── .env                   # Environment variables
+├── .gitignore
+├── config.py              # Application .env variables configuration
+├── db.py                  # Database connection + model
+├── Dockerfile             # API server container definition
+├── main.py                # FastAPI entrypoint
+├── README.md
+├── requirements.txt       # Python dependencies
+└── seed_fires.py          # Seed script for initial fire data
+
+```
