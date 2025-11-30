@@ -82,3 +82,27 @@ class FireModel(Base):
     url = Column(String, nullable=True) # Optional field
 
     inserted_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class EvacPlaceModel(Base):
+    __tablename__ = "evac_places"
+
+    id = Column(String, primary_key=True)
+    name = Column(String)
+    resource_type = Column(String, nullable=False)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    is_active = Column(Boolean, default=True)
+
+from sqlalchemy import Text 
+
+class EvacZoneModel(Base):
+    __tablename__ = "evac_zones"
+
+    id = Column(String, primary_key=True)
+    name = Column(String)
+    county = Column(String)
+    status = Column(String)
+    notes = Column(Text)
+    geometry_geojson = Column(Text)
+    is_active = Column(Boolean, default=True)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
