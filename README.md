@@ -26,9 +26,12 @@ You can find the compose file in the following repository:
 
 👉 [CMPE-195-Capstone: Compose](https://github.com/cmpe-195-capstone-project/compose)
 
-Clone the repository to access the `docker-compose.yml`.
+```shell
+git clone https://github.com/cmpe-195-capstone-project/compose.git
+```
 
-The compose file is available here: . Please clone the repo to access the docker compose file
+> Clone the repository to access the `docker-compose.yml`.
+
 
 
 ### Image Versions
