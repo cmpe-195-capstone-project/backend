@@ -93,8 +93,6 @@ class EvacPlaceModel(Base):
     longitude = Column(Float)
     is_active = Column(Boolean, default=True)
 
-from sqlalchemy import Text 
-
 class EvacZoneModel(Base):
     __tablename__ = "evac_zones"
 

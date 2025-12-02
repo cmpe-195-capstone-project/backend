@@ -138,29 +138,3 @@ async def list_evac_zones(db: Session = Depends(get_db)):
         {"id": z.id, "name": z.name, "county": z.county, "status": z.status}
         for z in zones
     ]
-
-
-@server_api.post("/seed-sjsu", response_model=FireSchema)
-async def seed_sjsu(db: Session = Depends(get_db)):
-    row = FireModel(
-        id="TEST-SJSU-1",
-        name="Test SJSU Fire",
-        location="San José State University",
-        county="Santa Clara",
-        is_active=True,
-        final=False,
-        updated_datetime=datetime.utcnow(),
-        start_datetime=datetime.utcnow(),
-        extinguished_datetime=None,
-        start_date=date.today(),
-        acres_burned=12.3,
-        percent_contained=10.0,
-        latitude=37.3352,
-        longitude=-121.8811,
-        fire_type="Wildfire",
-        control_statement="Seed for SJSU map test",
-        url="https://example.com",
-    )
-    db.merge(row)  # upsert by primary key
-    db.commit()
-    return db.query(FireModel).get("TEST-SJSU-1")

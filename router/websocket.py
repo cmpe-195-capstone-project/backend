@@ -1,6 +1,10 @@
 from fastapi import WebSocket, APIRouter, WebSocketDisconnect, Depends, status
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
+from shapely.geometry import shape, Point
+from shapely.ops import nearest_points
+import math
+from typing import Sequence
 
 from db import get_db, get_test_db, get_active_db, FireModel, SessionLocal, SessionLocalTest, EvacZoneModel
 from schema.fireschema import FireSchema
@@ -120,49 +124,25 @@ async def alert(websocket: WebSocket):
         return
         # await manager.disconnect(id=id)
 
-def _centroid_from_geojson(geometry_json: str | None) -> tuple[float | None, float | None]:
-    """
-    Compute a simple centroid from a Polygon or MultiPolygon GeoJSON.
-    Returns (lat, lon) or (None, None) if it fails.
-    """
-    if not geometry_json:
-        return None, None
 
-    try:
-        geom = json.loads(geometry_json)
-    except Exception:
-        return None, None
 
-    coords = []
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371.0 
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
 
-    gtype = geom.get("type")
-    if gtype == "Polygon":
-        for ring in geom.get("coordinates", []):
-            coords.extend(ring)
-    elif gtype == "MultiPolygon":
-        for poly in geom.get("coordinates", []):
-            for ring in poly:
-                coords.extend(ring)
-    else:
-        return None, None
+    a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
 
-    if not coords:
-        return None, None
-
-    lon_sum = 0.0
-    lat_sum = 0.0
-    n = len(coords)
-    for lon, lat in coords:
-        lon_sum += lon
-        lat_sum += lat
-
-    return lat_sum / n, lon_sum / n
-
-def get_nearest_fallback_place(user_lat: float, user_lon: float):
-    """
-    Pick the closest static fallback location from FALLBACK_SAFE_PLACES.
-    Returns (place_dict, lat, lon) or (None, None, None) if none exist.
-    """
+def get_nearest_fallback_place(
+    user_lat: float,
+    user_lon: float,
+    active_fires: Sequence[FireModel] | None = None,
+    fire_exclusion_km: float = 2.0,
+):
     if not FALLBACK_SAFE_PLACES:
         return None, None, None
 
@@ -177,45 +157,73 @@ def get_nearest_fallback_place(user_lat: float, user_lon: float):
         if lat is None or lon is None:
             continue
 
-        d_lat = lat - user_lat
-        d_lon = lon - user_lon
-        dist_sq = d_lat * d_lat + d_lon * d_lon
-
-        if best_dist is None or dist_sq < best_dist:
-            best_dist = dist_sq
+        # ignore fallback places that are too close to a fire (waht we have is approx 2km radius)
+        if active_fires:
+            too_close_to_fire = False
+            for fire in active_fires:
+                if not fire.is_active:
+                    continue
+                fire_dist_km = _haversine_km(lat, lon, fire.latitude, fire.longitude)
+                if fire_dist_km <= fire_exclusion_km:
+                    too_close_to_fire = True
+                    break
+            if too_close_to_fire:
+                continue
+        dist_km = _haversine_km(user_lat, user_lon, lat, lon)
+        if best_dist is None or dist_km < best_dist:
+            best_dist = dist_km
             best = place
             best_lat = lat
             best_lon = lon
-
+    if best is None:
+        return None, None, None
     return best, best_lat, best_lon
 
-# this is to get the nearest evac for the evac route in notif
-def get_nearest_evac_zone(db: Session, user_lat: float, user_lon: float):
+
+
+def get_nearest_exit_from_evac_zone(db: Session, user_lat: float, user_lon: float):
+    user_point = Point(user_lon, user_lat)
     zones = db.query(EvacZoneModel).filter(EvacZoneModel.is_active == True).all()
     if not zones:
-        return None, None, None  # zone, lat, lon
+        return None, None, None
 
     best_zone = None
-    best_lat = None
-    best_lon = None
+    best_exit_lat = None
+    best_exit_lon = None
     best_dist = None
 
     for zone in zones:
-        center_lat, center_lon = _centroid_from_geojson(zone.geometry_geojson)
-        if center_lat is None or center_lon is None:
+        geom_json = zone.geometry_geojson
+        if not geom_json:
             continue
 
-        d_lat = center_lat - user_lat
-        d_lon = center_lon - user_lon
-        dist_sq = d_lat * d_lat + d_lon * d_lon
+        try:
+            geom_dict = json.loads(geom_json)
+            zone_geom = shape(geom_dict)   # use polygon
+        except Exception:
+            continue
 
-        if best_dist is None or dist_sq < best_dist:
-            best_dist = dist_sq
+        # find zones that contain the user loc
+        if not zone_geom.is_valid or not zone_geom.contains(user_point):
+            continue
+
+        # nearest point on the boundary of this polygon to user
+        boundary = zone_geom.boundary
+        _, nearest_on_boundary = nearest_points(user_point, boundary)
+
+        dist = user_point.distance(nearest_on_boundary)
+
+        if best_dist is None or dist < best_dist:
+            best_dist = dist
             best_zone = zone
-            best_lat = center_lat
-            best_lon = center_lon
+            best_exit_lon = float(nearest_on_boundary.x)
+            best_exit_lat = float(nearest_on_boundary.y)
 
-    return best_zone, best_lat, best_lon
+    if best_zone is None:
+        return None, None, None
+
+    return best_zone, best_exit_lat, best_exit_lon
+
 
 
 async def check_fires():
@@ -263,19 +271,21 @@ async def check_fires():
 
             if fire_alerts:
                 print(f"[CheckFires] user {id} has {len(fire_alerts)} overlapping fires", flush=True)
-                zone, safe_lat, safe_lon = get_nearest_evac_zone(
+
+                safe_name = None
+                # get nearest exit from any evac zone the user is inside
+                zone, safe_lat, safe_lon = get_nearest_exit_from_evac_zone(
                     db=db,
                     user_lat=user_location.latitude,
                     user_lon=user_location.longitude,
                 )
 
-                safe_name = None
-
-                # fall back to static list
-                if not zone or safe_lat is None or safe_lon is None:
+                # user is not inside any evac zone fall back to nearest static safe place
+                if safe_lat is None or safe_lon is None:
                     fallback_place, fb_lat, fb_lon = get_nearest_fallback_place(
                         user_lat=user_location.latitude,
                         user_lon=user_location.longitude,
+                        active_fires=active_fires,
                     )
                     if fallback_place and fb_lat is not None and fb_lon is not None:
                         safe_lat = fb_lat
@@ -295,11 +305,11 @@ async def check_fires():
                     if safe_name:
                         payload["safe_name"] = safe_name
                     elif zone:
-                        payload["safe_name"] = zone.name or zone.id
+                        payload["safe_name"] = f"Nearest exit from evac zone: {zone.name or zone.id}"
                     else:
                         payload["safe_name"] = "Nearest safe location"
                 else:
-                    # Last-resort test fallback
+                    # google HQ fallback
                     payload["safe_latitude"] = 37.4220
                     payload["safe_longitude"] = -122.0841
                     payload["safe_name"] = "Google HQ (test fallback)"
