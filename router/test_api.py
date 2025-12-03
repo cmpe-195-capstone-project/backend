@@ -36,16 +36,12 @@ class FireCoordinatesRequest(BaseModel):
 
 def generate_fire_schema(latitude: float, longitude: float) -> FireSchema:
     start_time = fake.date_time_this_year()
-    is_final = fake.boolean()
     extinguish_time = None
-
-    if is_final:
-        extinguish_time = start_time + timedelta(days=random.randint(1, 30))
 
     return FireSchema(
         id=fake.uuid4(),
         name=f"{fake.last_name().capitalize()} Fire",
-        final=is_final,
+        final=False,
         updated_datetime=datetime.now(),
         start_datetime=start_time,
         extinguished_datetime=extinguish_time,
@@ -53,12 +49,12 @@ def generate_fire_schema(latitude: float, longitude: float) -> FireSchema:
         county="Santa Clara",
         location=fake.street_address(),
         acres_burned=round(random.uniform(10.5, 50000.0), 2),
-        percent_contained=100 if is_final else round(random.uniform(0.0, 99.0), 1),
+        percent_contained=round(random.uniform(0.0, 99.0), 1),
         control_statement=fake.sentence(nb_words=7),
         latitude=latitude,
         longitude=longitude,
         fire_type=random.choice(FIRE_TYPES),
-        is_active=not is_final,
+        is_active=True,
         url="https://www.fire.ca.gov/",
         inserted_at=datetime.now()
     )
