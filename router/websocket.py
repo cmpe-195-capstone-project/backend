@@ -59,16 +59,18 @@ async def alert(websocket: WebSocket):
 
 async def check_fires():
     print(f"{Color.GREEN}[INFO] CheckFires: performing scheduled fire check at {datetime.now()}{Color.RESET}", flush=True)
-    db = SessionLocalTest() if settings.ENV == "test" else SessionLocal()
+    db_gen = get_active_db()
+    db = next(db_gen)
     id = None
     try:
         # get all active fires  
         active_fires = db.query(FireModel).filter(FireModel.is_active == True).all()
-        
+        print(f"{Color.BLUE}[ACTIVE FIRE] there are {(len(active_fires))} active fires{Color.RESET}", flush=True)
 
         # loop over active connections
         for id, user_data in manager.active_connections.items():
             user_location = user_data["location"]
+            print(f"{Color.GREEN}[INFO] CheckFires: Check for client (id={id}) (loc={user_location}) {datetime.now()}{Color.RESET}", flush=True)
 
             # get the coordinates of a box around the user
             bounding_box = get_coordinates(
@@ -83,20 +85,23 @@ async def check_fires():
             fire_alerts: list[FireSchema] = [] # used to store alerts that will be sent
 
             # loop over the active fires 
-            if active_fires:
+            if active_fires:   
                 for fire in active_fires:
                     # check if there is a fire within the users bounding box
                     if (bounding_box.min_lat <= fire.latitude <= bounding_box.max_lat and
                             bounding_box.min_lon <= fire.longitude <= bounding_box.max_lon):
+
                         # check if the fire is already in the cache, if not add it to alerts list 
                         fire_schema = FireSchema.model_validate(fire, from_attributes=True) 
-                        if fire_schema in user_cache:
+
+                        if fire_schema in user_cache: # if cache hit, skip over it
                             continue
                         else:
-                            fire_alerts.append(fire_schema)
-            else:
-                # TODO: Remove print message later
-                print(f"{Color.GREEN}[INFO] CheckFires: No fire records available at {datetime.now()}{Color.RESET}", flush=True)
+                            print(f"{Color.BLUE}[FIRE W/IN BOUNDS] {fire_schema.name} is within bounds. Sending to client... {Color.RESET}", flush=True)
+                            fire_alerts.append(fire_schema) # add fire alert to cache
+
+            else: # There are NO active fires
+                print(f"{Color.GREEN}[INFO] CheckFires: No active fire incidents available at {datetime.now()}{Color.RESET}", flush=True)
                 await manager.send_json_message(id=id, message="There are no fires.")
 
             # send the fire alerts and store in cache
