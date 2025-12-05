@@ -39,17 +39,19 @@ class ConnectionManager:
 
         await conn["socket"].send_json(payload)
 
-    async def send_json_message(self, id: str, message: str):
+    async def send_json_message(self, id: str, message):
         conn = self.active_connections.get(id)
         if not conn:
             print(f"[WS] Tried to send JSON message to missing ID: {id}")
             return
-        
-        payload = {
-            "type": "message",
-            "message": message,
-        }
-        await conn["socket"].send_json(payload)
+        if isinstance(message, dict):
+            await conn["socket"].send_json(message)
+        else:
+            payload = {
+                "type": "message",
+                "message": str(message),
+            }
+            await conn["socket"].send_json(payload)
 
     async def disconnect(self, id: str):
         if id in self.active_connections:

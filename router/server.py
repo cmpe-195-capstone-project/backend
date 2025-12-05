@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Query, Depends
 import httpx, json
 
 from schema.fireschema import FireSchema
-from db import get_db, get_active_db, FireModel
+from db import get_db, get_active_db, FireModel, EvacPlaceModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
 from sqlalchemy import and_, func
@@ -12,6 +12,7 @@ from datetime import datetime, date, timedelta
 from faker import Faker
 import random
 fake = Faker()
+from schema.resourceplaceschema import ResourcePlaceSchema
 
 
 # define new router
@@ -104,28 +105,36 @@ async def get_fires_in_box(
 def ping():
     return {"ok": True}
 
-@server_api.post("/seed-sjsu", response_model=FireSchema)
-async def seed_sjsu(db: Session = Depends(get_active_db)):
-    row = FireModel(
-        id="TEST-SJSU-1",
-        name="Test SJSU Fire",
-        location="San José State University",
-        county="Santa Clara",
-        is_active=True,
-        final=False,
-        updated_datetime=datetime.utcnow(),
-        start_datetime=datetime.utcnow(),
-        extinguished_datetime=None,
-        start_date=date.today(),
-        acres_burned=12.3,
-        percent_contained=10.0,
-        latitude=37.3352,
-        longitude=-121.8811,
-        fire_type="Wildfire",
-        control_statement="Seed for SJSU map test",
-        url="https://example.com",
-    )
-    db.merge(row)  # upsert by primary key
-    db.commit()
-    return db.query(FireModel).get("TEST-SJSU-1")
+@server_api.get("/resources", response_model=list[ResourcePlaceSchema])
+async def list_resources(db: Session = Depends(get_active_db)):
+    """
+    List community resources (shelters, food, services) from evac_places table.
+    These are for the Resources page, not used for redirect logic.
+    """
+    try:
+        places = (
+            db.query(EvacPlaceModel)
+            .filter(EvacPlaceModel.is_active == True)
+            .all()
+        )
+        return places
+    except OperationalError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not connect to the database.",
+        )
+    except SQLAlchemyError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unexpected database error occurred.",
+        )
 
+from db import EvacZoneModel
+
+@server_api.get("/evac-zones")
+async def list_evac_zones(db: Session = Depends(get_active_db)):
+    zones = db.query(EvacZoneModel).all()
+    return [
+        {"id": z.id, "name": z.name, "county": z.county, "status": z.status}
+        for z in zones
+    ]

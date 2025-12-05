@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # NOTE: if this doesn't work switch to the dotenv lib
 class Settings(BaseSettings):
+    ENV: str = "dev"
     API_URL: str
     DATABASE_URL: str
     TEST_DB_URL: str

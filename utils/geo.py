@@ -13,7 +13,7 @@ def get_coordinates(latitude: float, longitude: float, radius: float) -> MinCoor
     center_pt = Point(latitude, longitude)
     
     # distance object
-    distance = geodesic(miles=radius)
+    distance = geodesic(meters=radius)
     
     # calculate the four points from the center along N, E, S, W (0=N, 90=E, 180=S, 270=W).
     north = distance.destination(point=center_pt, bearing=0)
