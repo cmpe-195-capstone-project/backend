@@ -72,7 +72,7 @@ async def get_fires_in_box(
     maxLat: float = Query(...),
     maxLng: float = Query(...),
     county: str | None = Query(None),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_active_db),
 ) -> list[FireSchema]:
     if minLat > maxLat:
         minLat, maxLat = maxLat, minLat
@@ -105,7 +105,7 @@ def ping():
     return {"ok": True}
 
 @server_api.post("/seed-sjsu", response_model=FireSchema)
-async def seed_sjsu(db: Session = Depends(get_db)):
+async def seed_sjsu(db: Session = Depends(get_active_db)):
     row = FireModel(
         id="TEST-SJSU-1",
         name="Test SJSU Fire",
