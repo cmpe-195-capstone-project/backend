@@ -86,7 +86,40 @@ async def post_fire(db: Session = Depends(get_test_db)) -> FireSchema:
     
     return db_record
 
+@test.delete("/fire/{fire_id}")
+async def delete_fire(fire_id: str, db: Session = Depends(get_test_db)):
+    try:
+        fire = db.query(FireModel).filter(FireModel.id == fire_id).first()
 
+        if not fire:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Fire with id '{fire_id}' not found."
+            )
+
+        db.delete(fire)
+        db.commit()
+
+        return {"message": f"Fire '{fire_id}' successfully deleted."}
+
+    except OperationalError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not connect to the database."
+        )
+
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Database integrity error."
+        )
+
+    except SQLAlchemyError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unexpected database error occurred."
+        )
+        
 @test.get("/fires", response_model=list[FireSchema])
 async def get_all_fires(db: Session = Depends(get_test_db)) -> list[FireSchema]:
     try:
