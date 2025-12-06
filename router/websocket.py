@@ -115,6 +115,7 @@ async def alert(websocket: WebSocket):
     except WebSocketDisconnect:
         # await manager.disconnect(id=id)
         print(f"{Color.YELLOW}[INFO] WSDisconnect: Disconnect websocket - [ID: {id}]{Color.RESET}", flush=True)
+        await manager.disconnect(id=id)
         return
     except (ValueError, TypeError) as e: 
         print(f"{Color.RED}[ERROR]: An error occurred: {e}{Color.RESET}")
