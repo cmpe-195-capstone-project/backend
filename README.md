@@ -24,10 +24,11 @@ The API server exposes REST endpoints for retrieving wildfire incident data stor
 Docker is required to set up and run the backend.
 You can find the compose file in the following repository:
 
-👉 [CMPE-195-Capstone: Compose](https://github.com/cmpe-195-capstone-project/compose)
+👉 [CMPE-195-Capstone: Compose](https://github.com/cmpe-195-capstone-project/infrastructure)
+
 
 ```shell
-git clone https://github.com/cmpe-195-capstone-project/compose.git
+git clone https://github.com/cmpe-195-capstone-project/infrastructure.git && cd docker
 ```
 
 > Clone the repository to access the `docker-compose.yml`.
